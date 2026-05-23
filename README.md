@@ -25,6 +25,8 @@ That's it—no manual REST routes, no Axios client, no shared contract files.
 
 ---
 
+
+
 ## Key Files
 
 ```
@@ -1038,3 +1040,6 @@ await createInvite.mutateAsync({ eventId: "123", origin: window.location.origin 
 // Backend - use input.origin to build the URL
 const inviteUrl = `${input.origin}/events/${eventId}/join?token=${token}`;
 ```
+
+
+site vist = https://phishai-5a778b5d.manus.space
