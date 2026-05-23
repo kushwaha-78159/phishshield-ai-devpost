@@ -23,7 +23,7 @@
 - [x] Create Live Scan page component
 - [x] Implement file upload functionality (audio/video)
 - [x] Add URL paste input field
-- [ ] Integrate with S3 file storage
+- [x] Integrate with S3 file storage
 - [x] Create scan submission tRPC procedure
 - [x] Display loading state during analysis
 
@@ -41,7 +41,7 @@
 - [x] Add verdict badges (real, fake, suspicious)
 - [x] Display threat scores and timestamps
 - [x] Implement pagination controls
-- [ ] Add file download/reference links
+- [x] Add file download/reference links
 
 ## Demo Mode
 - [x] Create pre-loaded sample scans in database
@@ -55,19 +55,19 @@
 - [x] Build scan volume over time chart
 - [x] Build verdict distribution chart (real vs fake vs suspicious)
 - [x] Build threat trend chart
-- [ ] Implement date range filtering
+- [x] Implement date range filtering
 
 ## Styling & Polish
 - [x] Apply dark cybersecurity theme globally
 - [x] Use neon green and cyan accents
 - [x] Implement monospace typography
-- [ ] Add responsive design for mobile
+- [x] Add responsive design for mobile
 - [x] Test all user flows end-to-end
 - [x] Verify email notifications work correctly
 
 ## Testing & Deployment
-- [ ] Write vitest tests for core procedures
-- [ ] Test file upload and storage
-- [ ] Test LLM analysis engine
-- [ ] Verify email notifications
+- [x] Write vitest tests for core procedures
+- [x] Test file upload and storage
+- [x] Test LLM analysis engine
+- [x] Verify email notifications
 - [x] Create final checkpoint
