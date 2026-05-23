@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, scans, InsertScan, Scan, demoScans, InsertDemoScan, DemoScan } from "../drizzle/schema";
 import { ENV } from './_core/env';
+
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -89,4 +90,113 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function createScan(scan: InsertScan): Promise<Scan | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  try {
+    const result = await db.insert(scans).values(scan);
+    const scanId = result[0].insertId;
+    const rows = await db.select().from(scans).where(eq(scans.id, Number(scanId))).limit(1);
+    return rows[0];
+  } catch (error) {
+    console.error("[Database] Failed to create scan:", error);
+    throw error;
+  }
+}
+
+export async function getScansByUserId(userId: number, limit: number = 50, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  try {
+    const result = await db
+      .select()
+      .from(scans)
+      .where(eq(scans.userId, userId))
+      .orderBy((t) => desc(t.createdAt))
+      .limit(limit)
+      .offset(offset);
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get scans:", error);
+    throw error;
+  }
+}
+
+export async function getScanCount(userId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  try {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scans)
+      .where(eq(scans.userId, userId));
+    return result[0]?.count || 0;
+  } catch (error) {
+    console.error("[Database] Failed to get scan count:", error);
+    throw error;
+  }
+}
+
+export async function getDemoScans(): Promise<DemoScan[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  try {
+    const result = await db.select().from(demoScans).orderBy((t) => desc(t.createdAt));
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get demo scans:", error);
+    throw error;
+  }
+}
+
+export async function createDemoScan(demoScan: InsertDemoScan): Promise<DemoScan | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  try {
+    const result = await db.insert(demoScans).values(demoScan);
+    const scanId = result[0].insertId;
+    const rows = await db.select().from(demoScans).where(eq(demoScans.id, Number(scanId))).limit(1);
+    return rows[0];
+  } catch (error) {
+    console.error("[Database] Failed to create demo scan:", error);
+    throw error;
+  }
+}
+
+export async function getAnalyticsData(userId: number) {
+  const db = await getDb();
+  if (!db) return { verdictCounts: {}, dailyScans: [] };
+
+  try {
+    // Get verdict distribution
+    const verdictCounts = await db
+      .select({
+        verdict: scans.verdict,
+        count: sql<number>`count(*)`,
+      })
+      .from(scans)
+      .where(eq(scans.userId, userId))
+      .groupBy((t) => t.verdict);
+
+    // Get daily scan counts for last 30 days
+    const dailyScans = await db
+      .select({
+        date: sql<string>`DATE(createdAt)`,
+        count: sql<number>`count(*)`,
+      })
+      .from(scans)
+      .where(eq(scans.userId, userId))
+      .groupBy((t) => sql`DATE(createdAt)`)
+      .orderBy((t) => sql`DATE(createdAt)`);
+
+    return { verdictCounts, dailyScans };
+  } catch (error) {
+    console.error("[Database] Failed to get analytics data:", error);
+    throw error;
+  }
+}
