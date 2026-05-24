@@ -1,10 +1,5 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Link as LinkIcon, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, Link as LinkIcon, AlertCircle, CheckCircle, Loader } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -30,6 +25,7 @@ export default function LiveScan() {
         return;
       }
       setSelectedFile(file);
+      toast.success(`File selected: ${file.name}`);
     }
   };
 
@@ -49,224 +45,223 @@ export default function LiveScan() {
       const verdict = threatScore > 70 ? "fake" : threatScore > 40 ? "suspicious" : "real";
       const confidence = Math.floor(Math.random() * 30) + 70;
 
-      const fileName = uploadMethod === "file" ? selectedFile!.name : urlInput;
-      const fileKey = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const fileUrl = uploadMethod === "file" ? URL.createObjectURL(selectedFile!) : urlInput;
-
-      const explanation =
-        verdict === "fake"
-          ? "High probability of AI-generated content detected. Facial artifacts and unnatural blinking patterns identified."
-          : verdict === "suspicious"
-            ? "Some anomalies detected. Recommend manual review. Audio frequency patterns show minor irregularities."
-            : "Content appears authentic. No significant deepfake markers detected.";
-
       const result = await createScanMutation.mutateAsync({
-        fileKey,
-        fileName,
-        fileUrl,
         scanType,
+        fileKey: `scan-${Date.now()}`,
+        fileName: selectedFile?.name || urlInput,
+        fileUrl: urlInput || "",
         threatScore,
-        verdict,
+        verdict: verdict as "real" | "fake" | "suspicious",
         confidence,
-        explanation,
+        explanation: `This ${scanType} content shows ${confidence}% confidence of being ${verdict}. ${
+          verdict === "fake"
+            ? "Detected AI-generated artifacts and unnatural patterns."
+            : verdict === "suspicious"
+            ? "Some anomalies detected but not conclusive."
+            : "Content appears to be authentic with no major red flags."
+        }`,
       });
 
       setScanResult(result);
       toast.success("Scan completed!");
+      setSelectedFile(null);
+      setUrlInput("");
     } catch (error) {
       toast.error("Scan failed. Please try again.");
-      console.error(error);
     } finally {
       setIsScanning(false);
     }
   };
 
+  const getVerdictColor = (verdict: string) => {
+    switch (verdict) {
+      case "real":
+        return "#00ff88";
+      case "fake":
+        return "#ff4757";
+      case "suspicious":
+        return "#ffc107";
+      default:
+        return "#00d9ff";
+    }
+  };
+
+  const getThreatLevel = (score: number) => {
+    if (score > 80) return "Critical";
+    if (score > 60) return "High";
+    if (score > 40) return "Medium";
+    return "Low";
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold accent-green mb-2">Live Scan</h1>
-        <p className="text-muted-foreground">Upload or paste media to detect deepfakes and voice clones</p>
+        <h1 className="text-4xl font-bold mb-2">Live Scan</h1>
+        <p className="text-[#cbd5e0]">Upload or paste a URL to analyze audio or video for deepfakes</p>
       </div>
 
-      {!scanResult ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6 border-[#00ff00]/30 bg-card">
-              <Label className="text-base font-bold accent-green mb-4 block">Media Type</Label>
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setScanType("audio")}
-                  variant={scanType === "audio" ? "default" : "outline"}
-                  className={scanType === "audio" ? "bg-[#00ff00] text-black" : "border-[#00ffff]"}
-                >
-                  Audio
-                </Button>
-                <Button
-                  onClick={() => setScanType("video")}
-                  variant={scanType === "video" ? "default" : "outline"}
-                  className={scanType === "video" ? "bg-[#00ff00] text-black" : "border-[#00ffff]"}
-                >
-                  Video
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-6 border-[#00ff00]/30 bg-card">
-              <Tabs value={uploadMethod} onValueChange={(v) => setUploadMethod(v as "file" | "url")}>
-                <TabsList className="grid w-full grid-cols-2 bg-card border border-border">
-                  <TabsTrigger value="file" className="data-[state=active]:bg-[#00ff00] data-[state=active]:text-black">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload File
-                  </TabsTrigger>
-                  <TabsTrigger value="url" className="data-[state=active]:bg-[#00ff00] data-[state=active]:text-black">
-                    <LinkIcon className="w-4 h-4 mr-2" />
-                    Paste URL
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="file" className="mt-6 space-y-4">
-                  <div className="border-2 border-dashed border-[#00ff00]/50 rounded-lg p-8 text-center hover:border-[#00ff00] transition-colors cursor-pointer">
-                    <input
-                      type="file"
-                      onChange={handleFileSelect}
-                      accept={scanType === "audio" ? "audio/*" : "video/*"}
-                      className="hidden"
-                      id="file-input"
-                    />
-                    <label htmlFor="file-input" className="cursor-pointer">
-                      <Upload className="w-12 h-12 accent-green mx-auto mb-4" />
-                      <p className="font-bold accent-green mb-2">Drop file here or click to select</p>
-                      <p className="text-sm text-muted-foreground">
-                        {scanType === "audio" ? "MP3, WAV, OGG" : "MP4, WebM, MOV"} up to 100MB
-                      </p>
-                    </label>
-                  </div>
-                  {selectedFile && (
-                    <div className="flex items-center gap-3 p-3 bg-[#00ff00]/10 border border-[#00ff00]/30 rounded-lg">
-                      <CheckCircle className="w-5 h-5 accent-green" />
-                      <div>
-                        <p className="font-bold text-sm">{selectedFile.name}</p>
-                        <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                      </div>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="url" className="mt-6 space-y-4">
-                  <Input
-                    placeholder="https://example.com/media.mp4"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                  />
-                  <p className="text-sm text-muted-foreground">Enter a direct URL to audio or video content</p>
-                </TabsContent>
-              </Tabs>
-            </Card>
-
-            <Button
-              onClick={handleScan}
-              disabled={isScanning || (!selectedFile && uploadMethod === "file") || (!urlInput && uploadMethod === "url")}
-              size="lg"
-              className="w-full bg-[#00ff00] text-black font-bold hover:shadow-[0_0_30px_#00ff00] disabled:opacity-50"
+      {/* Scan Type Selection */}
+      <div className="glass-card">
+        <h3 className="text-lg font-bold mb-4">Select Media Type</h3>
+        <div className="flex gap-4">
+          {["audio", "video"].map((type) => (
+            <button
+              key={type}
+              onClick={() => setScanType(type as "audio" | "video")}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                scanType === type
+                  ? "bg-[#00ff88] text-[#0a0e27]"
+                  : "bg-[#1a2847] text-[#cbd5e0] hover:bg-[#2a3857]"
+              }`}
             >
-              {isScanning ? "Analyzing..." : "Start Scan"}
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="p-4 border-[#00ffff]/30 bg-card/50">
-              <div className="flex gap-3">
-                <AlertCircle className="w-5 h-5 accent-cyan flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold text-sm accent-cyan mb-1">How It Works</p>
-                  <p className="text-xs text-muted-foreground">
-                    Our AI analyzes visual and audio patterns to detect deepfakes and voice clones with 99.2% accuracy
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 border-[#00ff00]/30 bg-card/50">
-              <p className="font-bold text-sm accent-green mb-2">What We Check</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• Facial artifacts and anomalies</li>
-                <li>• Blinking patterns</li>
-                <li>• Audio frequency analysis</li>
-                <li>• Voice pattern matching</li>
-                <li>• AI generation signatures</li>
-              </ul>
-            </Card>
-          </div>
+              {type === "audio" ? "🎵 Audio" : "🎬 Video"}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="space-y-6">
-          <Card className="p-8 border-[#00ff00]/30 bg-card">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-4">Scan Complete</h2>
-              <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-4 ${
-                scanResult.verdict === "real"
-                  ? "bg-green-900/30 border-2 border-green-400"
-                  : scanResult.verdict === "fake"
-                    ? "bg-red-900/30 border-2 border-red-400"
-                    : "bg-yellow-900/30 border-2 border-yellow-400"
-              }`}>
-                <span className={`text-3xl font-bold ${
-                  scanResult.verdict === "real"
-                    ? "text-green-400"
-                    : scanResult.verdict === "fake"
-                      ? "text-red-400"
-                      : "text-yellow-400"
-                }`}>
-                  {scanResult.threatScore}%
-                </span>
+      </div>
+
+      {/* Upload Method Selection */}
+      <div className="glass-card">
+        <h3 className="text-lg font-bold mb-4">Upload Method</h3>
+        <div className="flex gap-4">
+          {["file", "url"].map((method) => (
+            <button
+              key={method}
+              onClick={() => setUploadMethod(method as "file" | "url")}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                uploadMethod === method
+                  ? "bg-[#00d9ff] text-[#0a0e27]"
+                  : "bg-[#1a2847] text-[#cbd5e0] hover:bg-[#2a3857]"
+              }`}
+            >
+              {method === "file" ? (
+                <>
+                  <Upload className="w-4 h-4" /> Upload File
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="w-4 h-4" /> Paste URL
+                </>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Upload Area */}
+      <div className="glass-card">
+        {uploadMethod === "file" ? (
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold">Upload {scanType === "audio" ? "Audio" : "Video"} File</h3>
+            <div className="border-2 border-dashed border-[#00ff88]/30 rounded-lg p-8 text-center hover:border-[#00ff88]/60 transition-colors cursor-pointer">
+              <input
+                type="file"
+                accept={scanType === "audio" ? "audio/*" : "video/*"}
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-input"
+              />
+              <label htmlFor="file-input" className="cursor-pointer block">
+                <Upload className="w-12 h-12 text-[#00ff88] mx-auto mb-3 opacity-50" />
+                <p className="text-lg font-semibold mb-1">
+                  {selectedFile ? selectedFile.name : "Click to upload or drag and drop"}
+                </p>
+                <p className="text-[#4a5568] text-sm">
+                  {scanType === "audio" ? "MP3, WAV, OGG up to 50MB" : "MP4, WebM, MOV up to 500MB"}
+                </p>
+              </label>
+            </div>
+            {selectedFile && (
+              <div className="flex items-center gap-2 p-3 bg-[#00ff88]/10 rounded-lg border border-[#00ff88]/30">
+                <CheckCircle className="w-5 h-5 text-[#00ff88]" />
+                <span className="text-[#cbd5e0]">{selectedFile.name}</span>
               </div>
-              <p className={`text-2xl font-bold ${
-                scanResult.verdict === "real"
-                  ? "accent-green"
-                  : scanResult.verdict === "fake"
-                    ? "text-red-400"
-                    : "text-yellow-400"
-              }`}>
-                {scanResult.verdict === "real" ? "AUTHENTIC" : scanResult.verdict === "fake" ? "DEEPFAKE DETECTED" : "SUSPICIOUS"}
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold">Enter Media URL</h3>
+            <input
+              type="url"
+              placeholder="https://example.com/media.mp4"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              className="w-full px-4 py-3 bg-[#1a2847] border border-[#2a3857] rounded-lg text-[#f0f4f8] placeholder-[#4a5568] focus:border-[#00ff88] focus:outline-none transition-colors"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Scan Button */}
+      <button
+        onClick={handleScan}
+        disabled={isScanning || (uploadMethod === "file" && !selectedFile) || (uploadMethod === "url" && !urlInput)}
+        className={`w-full py-4 rounded-lg font-bold text-lg transition-all duration-200 flex items-center justify-center gap-2 ${
+          isScanning || (uploadMethod === "file" && !selectedFile) || (uploadMethod === "url" && !urlInput)
+            ? "bg-[#4a5568] text-[#cbd5e0] cursor-not-allowed"
+            : "bg-[#00ff88] text-[#0a0e27] hover:bg-[#00e67e] hover:shadow-[0_0_25px_rgba(0,255,136,0.5)]"
+        }`}
+      >
+        {isScanning ? (
+          <>
+            <Loader className="w-5 h-5 animate-spin" /> Analyzing...
+          </>
+        ) : (
+          <>
+            🔍 Start Scan
+          </>
+        )}
+      </button>
+
+      {/* Scan Result */}
+      {scanResult && (
+        <div className="glass-card border-[#00ff88]/30 animate-fade-in">
+          <h3 className="text-2xl font-bold mb-6">Scan Result</h3>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-6">
+            {/* Verdict */}
+            <div className="text-center p-4 rounded-lg bg-[#1a2847]">
+              <p className="text-[#4a5568] text-sm mb-2">Verdict</p>
+              <p
+                className="text-2xl font-bold capitalize"
+                style={{ color: getVerdictColor(scanResult.verdict) }}
+              >
+                {scanResult.verdict}
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="text-center p-4 bg-card/50 rounded-lg border border-border">
-                <p className="text-muted-foreground text-sm mb-1">Threat Score</p>
-                <p className="text-2xl font-bold accent-green">{scanResult.threatScore}%</p>
-              </div>
-              <div className="text-center p-4 bg-card/50 rounded-lg border border-border">
-                <p className="text-muted-foreground text-sm mb-1">Confidence</p>
-                <p className="text-2xl font-bold accent-cyan">{scanResult.confidence}%</p>
-              </div>
-              <div className="text-center p-4 bg-card/50 rounded-lg border border-border">
-                <p className="text-muted-foreground text-sm mb-1">File Type</p>
-                <p className="text-2xl font-bold uppercase">{scanResult.scanType.slice(0, 3)}</p>
-              </div>
+            {/* Threat Score */}
+            <div className="text-center p-4 rounded-lg bg-[#1a2847]">
+              <p className="text-[#4a5568] text-sm mb-2">Threat Score</p>
+              <p className="text-2xl font-bold text-[#00d9ff]">{scanResult.threatScore}%</p>
+              <p className="text-sm text-[#cbd5e0] mt-1">{getThreatLevel(scanResult.threatScore)}</p>
             </div>
 
-            <div className="p-4 bg-[#00ff00]/10 border border-[#00ff00]/30 rounded-lg mb-8">
-              <p className="font-bold text-sm accent-green mb-2">Analysis Details</p>
-              <p className="text-sm text-muted-foreground">{scanResult.explanation}</p>
+            {/* Confidence */}
+            <div className="text-center p-4 rounded-lg bg-[#1a2847]">
+              <p className="text-[#4a5568] text-sm mb-2">Confidence</p>
+              <p className="text-2xl font-bold text-[#00ff88]">{scanResult.confidence}%</p>
             </div>
+          </div>
 
-            <div className="flex gap-4">
-              <Button
-                onClick={() => setScanResult(null)}
-                className="flex-1 bg-[#00ff00] text-black font-bold hover:shadow-[0_0_20px_#00ff00]"
-              >
-                Scan Another File
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 border-[#00ffff] text-[#00ffff] font-bold hover:bg-[#00ffff]/10"
-              >
-                Download Report
-              </Button>
-            </div>
-          </Card>
+          {/* Explanation */}
+          <div className="bg-[#1a2847] p-4 rounded-lg">
+            <p className="text-[#cbd5e0]">{scanResult.explanation}</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 mt-6">
+            <button
+              onClick={() => setScanResult(null)}
+              className="flex-1 py-3 px-4 rounded-lg font-medium bg-[#1a2847] text-[#cbd5e0] hover:bg-[#2a3857] transition-colors"
+            >
+              New Scan
+            </button>
+            <button className="flex-1 py-3 px-4 rounded-lg font-medium bg-[#00ff88] text-[#0a0e27] hover:bg-[#00e67e] transition-colors">
+              Save Report
+            </button>
+          </div>
         </div>
       )}
     </div>
