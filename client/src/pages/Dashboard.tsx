@@ -53,7 +53,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#0a0e27]">
       {/* Top Navigation */}
       <nav className="fixed top-0 w-full z-40 backdrop-blur-md border-b border-[#1a2847] bg-[#0a0e27]/80">
-        <div className="px-4 py-4 flex items-center justify-between">
+        <div className="px-4 py-4 flex items-center justify-between" style={{backgroundColor: '#2c2121', borderColor: '#d9210d', borderRadius: '02px', borderWidth: '2px'}}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
