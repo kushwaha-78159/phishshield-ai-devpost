@@ -11,13 +11,18 @@ export default function Home() {
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   if (isAuthenticated) {
-    navigate("/dashboard");
     return null;
   }
 
